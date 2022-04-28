@@ -56,7 +56,6 @@ public class TwilioJavaGenerator extends JavaClientCodegen {
         additionalProperties.put("apiVersionClass", version.toUpperCase());
         additionalProperties.put("domain", StringUtils.camelize(domain));
         additionalProperties.put("domainPackage", domain.toLowerCase());
-
         supportingFiles.clear();
         apiTemplateFiles.put("api.mustache", ".java");
         apiTemplateFiles.put("creator.mustache", "Creator.java");
@@ -216,6 +215,9 @@ public class TwilioJavaGenerator extends JavaClientCodegen {
                       resource.put("responseModel", model);
                   }
                   resource.put("serialVersionUID", calculateSerialVersionUid(model.vars));
+                  resource.put("import", getImports(model.imports, model.vars));
+
+
               });
 
             results.put("apiFilename", getResourceName(co.path));
@@ -309,6 +311,51 @@ public class TwilioJavaGenerator extends JavaClientCodegen {
     private void addOperationName(final CodegenOperation operation, final String name) {
         operation.vendorExtensions.put("x-name", name);
         operation.vendorExtensions.put("x-name-lower", name.toLowerCase());
+    }
+
+    private String getImports(final Set<String> modelImports, final List<CodegenProperty> modelProperties){
+//        System.out.println("modelProperties: "+modelProperties);
+        Set<Object> importSet = new HashSet<>();
+        for (CodegenProperty property : modelProperties) {
+            if(!property.vendorExtensions.isEmpty()){
+                Map<Object, List<Object>> libraryMap =  (Map<Object, List<Object>>)property.getVendorExtensions().get("library");
+
+                for (Object key: libraryMap.keySet()) {
+//                    System.out.println("lib value : " + libraryMap.get(key));
+                    Object importList = (Object)libraryMap.get(key);
+                    String importListString = importList.toString();
+                    importListString = importListString.substring(1, importListString.length() - 1);
+
+                    if(importListString.contains(",")){
+                        String[] importListStringArray = importListString.split("\\s*,\\s*");
+                        for(String importString : importListStringArray){
+                            importSet.add(importString);
+                        }
+                    }else{
+                        importSet.add(importListString);
+                    }
+
+                }
+
+                if(property.getVendorExtensions().get("deserialize") != null){
+                    Map<Object, Object> deserializeMap =  (Map)property.getVendorExtensions().get("deserialize");
+                    for (Object key: deserializeMap.keySet()) {
+//                        System.out.println(" deserializeMap value : " + deserializeMap.get(key));
+                        importSet.add(deserializeMap.get(key));
+                    }
+                }
+            }
+        }
+        for(Object im: importSet){
+//            System.out.println("import: "+ im);
+        }
+        StringBuilder importsList = new StringBuilder();
+        for(Object importStatement: importSet){
+            importsList.append("import ");
+            importsList.append(importStatement);
+            importsList.append(";\n");
+        }
+        return importsList.toString();
     }
 
     private long calculateSerialVersionUid(final List<CodegenProperty> modelProperties){
